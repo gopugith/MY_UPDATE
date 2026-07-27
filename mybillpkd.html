@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart EG Electronics - Service Ledger</title>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background-color: #f2f2f7; margin: 0; padding: 15px; }
+        .card { background: #ffffff; padding: 20px; border-radius: 12px; max-width: 500px; margin: 0 auto; box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+        h2 { text-align: center; color: #1c1c1e; margin-top: 0; margin-bottom: 15px; }
+        .group { margin-bottom: 15px; }
+        label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; color: #3a3a3c; }
+        input, textarea { width: 100%; padding: 12px; border: 1px solid #c7c7cc; border-radius: 8px; font-size: 16px; outline: none; }
+        input:focus, textarea:focus { border-color: #007aff; }
+        textarea { height: 90px; resize: vertical; }
+        .row { display: flex; gap: 10px; }
+        .row .group { flex: 1; }
+        .highlight-input { background-color: #e5f1ff; font-weight: bold; border-color: #007aff; color: #007aff; }
+        .profit-input { background-color: #e3f9e5; font-weight: bold; border-color: #34c759; color: #28a745; }
+        .btn { display: block; width: 100%; padding: 14px; background: #34c759; color: white; text-align: center; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 16px; border: none; margin-top: 20px; }
+        .btn:active { background: #28a745; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>Smart EG Electronics 🔌</h2>
+
+    <div class="row">
+        <div class="group">
+            <label>Date</label>
+            <input type="text" id="billDate">
+        </div>
+        <div class="group">
+            <label>Customer Mobile</label>
+            <input type="tel" id="phone" value="9746620682">
+        </div>
+    </div>
+
+    <!-- Service Details -->
+    <div class="group">
+        <label>Service Details (Description)</label>
+        <textarea id="serviceDetails" placeholder="ENTER Details"></textarea>
+    </div>
+
+    <!-- Additional Details / Notes -->
+    <div class="group">
+        <label>Additional Details / Notes</label>
+        <textarea id="additionalDetails" placeholder="Enter additional notes..."></textarea>
+    </div>
+
+    <!-- Service Amount -->
+    <div class="group">
+        <label>Total Service Amount (₹)</label>
+        <input type="number" id="serviceTotal" placeholder="0" class="highlight-input">
+    </div>
+
+    <!-- Bills Breakdown: RSK & Rbot -->
+    <div class="row">
+        <div class="group">
+            <label>RSK Bill (₹)</label>
+            <input type="number" id="rskBill" placeholder="0">
+        </div>
+        <div class="group">
+            <label>Rbot Bill (₹)</label>
+            <input type="number" id="rbotBill" placeholder="0">
+        </div>
+    </div>
+
+    <!-- Component Bill Total & RSK Balance -->
+    <div class="row">
+        <div class="group">
+            <label>Component Bill Total (₹)</label>
+            <input type="number" id="componentBillTotal" placeholder="0" readonly class="highlight-input">
+        </div>
+        <div class="group">
+            <label>RSK Balance Due (₹)</label>
+            <input type="number" id="balanceAmount" placeholder="0">
+        </div>
+    </div>
+
+    <!-- Total Amount & Profit Amount -->
+    <div class="row">
+        <div class="group">
+            <label>Total Amount (₹)</label>
+            <input type="number" id="grandTotalToday" class="highlight-input" placeholder="0" readonly>
+        </div>
+        <div class="group">
+            <label>Profit Amount (₹)</label>
+            <input type="number" id="todayProfitAmount" class="profit-input" placeholder="0" readonly>
+        </div>
+    </div>
+
+    <!-- Old Shop Amount & Total Shop Amount -->
+    <div class="row">
+        <div class="group">
+            <label>Old Shop Amount (₹)</label>
+            <input type="number" id="oldShopAmount" placeholder="0">
+        </div>
+        <div class="group">
+            <label>Total Shop Amount (₹)</label>
+            <input type="number" id="shopTotal" class="profit-input" placeholder="0" readonly>
+        </div>
+    </div>
+
+    <a id="smsBtn" class="btn" href="#">Send WebSMS</a>
+</div>
+
+<script>
+// List of all input elements to track and save
+const inputIds = [
+    'serviceTotal', 'oldShopAmount', 'rskBill', 'rbotBill', 'balanceAmount', 
+    'billDate', 'phone', 'serviceDetails', 'additionalDetails'
+];
+
+function getVal(id) {
+    let el = document.getElementById(id);
+    if (!el || !el.value) return 0;
+    let num = parseFloat(el.value);
+    return isNaN(num) ? 0 : num;
+}
+
+function setTodayDate() {
+    let today = new Date();
+    let dd = String(today.getDate()).padStart(2, '0');
+    let mm = String(today.getMonth() + 1).padStart(2, '0');
+    let yyyy = today.getFullYear();
+
+    document.getElementById('billDate').value = dd + '/' + mm + '/' + yyyy;
+}
+
+function extractAndSumServiceDetails() {
+    let text = document.getElementById('serviceDetails').value;
+    let matches = text.match(/\d+(\.\d+)?/g);
+    let autoSum = 0;
+
+    if (matches) {
+        autoSum = matches.reduce((sum, val) => sum + parseFloat(val), 0);
+    }
+
+    document.getElementById('serviceTotal').value = autoSum > 0 ? autoSum : '';
+}
+
+function calculateAndSMS() {
+    extractAndSumServiceDetails();
+
+    let service = getVal('serviceTotal');
+    let rsk = getVal('rskBill');
+    let rbot = getVal('rbotBill');
+    let oldShop = getVal('oldShopAmount');
+
+    // Calculations
+    let componentTotal = rsk + rbot;
+    document.getElementById('componentBillTotal').value = componentTotal;
+
+    let totalAmount = service + componentTotal;
+    document.getElementById('grandTotalToday').value = totalAmount;
+
+    let profitAmt = service - componentTotal;
+    document.getElementById('todayProfitAmount').value = profitAmt;
+
+    let totalShopAmt = oldShop + profitAmt;
+    document.getElementById('shopTotal').value = totalShopAmt;
+
+    saveData();
+    updateSMS();
+}
+
+function saveData() {
+    inputIds.forEach(id => {
+        let el = document.getElementById(id);
+        if (el) {
+            localStorage.setItem('ledger_' + id, el.value);
+        }
+    });
+}
+
+function loadData() {
+    inputIds.forEach(id => {
+        let savedVal = localStorage.getItem('ledger_' + id);
+        let el = document.getElementById(id);
+        if (savedVal !== null && el) {
+            el.value = savedVal;
+        }
+    });
+}
+
+function updateSMS() {
+    let dateStr = document.getElementById('billDate').value || '';
+    let phone = document.getElementById('phone').value || '';
+    let details = document.getElementById('serviceDetails').value || '';
+    let extraDetails = document.getElementById('additionalDetails').value || '';
+    let service = getVal('serviceTotal');
+    let rsk = getVal('rskBill');
+    let rbot = getVal('rbotBill');
+    let componentTotal = getVal('componentBillTotal');
+    let totalAmount = getVal('grandTotalToday');
+    let balance = getVal('balanceAmount');
+    let profitAmt = getVal('todayProfitAmount');
+    let oldShop = getVal('oldShopAmount');
+    let shopAmt = getVal('shopTotal');
+
+    let message = `Smart EG Electronics (${dateStr})\n` +
+                  (details ? `Details:\n${details}\n` : '') +
+                  (extraDetails ? `Addl Notes: ${extraDetails}\n` : '') +
+                  `Service Total: Rs.${service}\n` +
+                  `RSK Bill: Rs.${rsk}\n` +
+                  `Rbot Bill: Rs.${rbot}\n` +
+                  `Parts Bill Total: Rs.${componentTotal}\n` +
+                  `Total Amount: Rs.${totalAmount}\n` +
+                  `Profit Amount: Rs.${profitAmt}\n` +
+                  `Old Shop Amount: Rs.${oldShop}\n` +
+                  `Total Shop Amount: Rs.${shopAmt}\n` +
+                  `RSK Balance Due: Rs.${balance}`;
+
+    let smsUrl = "sms:" + phone + "?body=" + encodeURIComponent(message);
+    document.getElementById('smsBtn').setAttribute("href", smsUrl);
+}
+
+// Event Listeners for real-time input
+inputIds.forEach(id => {
+    let el = document.getElementById(id);
+    if (el) {
+        el.addEventListener('input', calculateAndSMS);
+        el.addEventListener('keyup', calculateAndSMS);
+        el.addEventListener('change', calculateAndSMS);
+    }
+});
+
+// Re-trigger calculations instantly when returning to Safari tab
+document.addEventListener('visibilitychange', function() {
+    if (document.visibilityState === 'visible') {
+        calculateAndSMS();
+    }
+});
+
+// Startup Execution
+window.onload = function() {
+    loadData();
+    if (!document.getElementById('billDate').value) {
+        setTodayDate();
+    }
+    calculateAndSMS();
+};
+</script>
+
+</body>
+</html>
