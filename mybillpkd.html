@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart EG Electronics - Service Ledger</title>
+    <!-- Include html2pdf library for PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: #f2f2f7; margin: 0; padding: 15px; }
@@ -18,13 +20,18 @@
         .row .group { flex: 1; }
         .highlight-input { background-color: #e5f1ff; font-weight: bold; border-color: #007aff; color: #007aff; }
         .profit-input { background-color: #e3f9e5; font-weight: bold; border-color: #34c759; color: #28a745; }
-        .btn { display: block; width: 100%; padding: 14px; background: #34c759; color: white; text-align: center; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 16px; border: none; margin-top: 20px; }
-        .btn:active { background: #28a745; }
+        
+        .btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+        .btn { display: block; width: 100%; padding: 14px; text-align: center; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 16px; border: none; cursor: pointer; }
+        .btn-sms { background: #34c759; color: white; }
+        .btn-sms:active { background: #28a745; }
+        .btn-pdf { background: #007aff; color: white; }
+        .btn-pdf:active { background: #0056b3; }
     </style>
 </head>
 <body>
 
-<div class="card">
+<div class="card" id="ledgerCard">
     <h2>Smart EG Electronics 🔌</h2>
 
     <div class="row">
@@ -104,11 +111,13 @@
         </div>
     </div>
 
-    <a id="smsBtn" class="btn" href="#">Send WebSMS</a>
+    <div class="btn-group">
+        <a id="smsBtn" class="btn btn-sms" href="#">Send WebSMS</a>
+        <button id="pdfBtn" class="btn btn-pdf" onclick="generateAndSharePDF()">Export / Share PDF 📄</button>
+    </div>
 </div>
 
 <script>
-// List of all input elements to track and save
 const inputIds = [
     'serviceTotal', 'oldShopAmount', 'rskBill', 'rbotBill', 'balanceAmount', 
     'billDate', 'phone', 'serviceDetails', 'additionalDetails'
@@ -130,21 +139,7 @@ function setTodayDate() {
     document.getElementById('billDate').value = dd + '/' + mm + '/' + yyyy;
 }
 
-function extractAndSumServiceDetails() {
-    let text = document.getElementById('serviceDetails').value;
-    let matches = text.match(/\d+(\.\d+)?/g);
-    let autoSum = 0;
-
-    if (matches) {
-        autoSum = matches.reduce((sum, val) => sum + parseFloat(val), 0);
-    }
-
-    document.getElementById('serviceTotal').value = autoSum > 0 ? autoSum : '';
-}
-
 function calculateAndSMS() {
-    extractAndSumServiceDetails();
-
     let service = getVal('serviceTotal');
     let rsk = getVal('rskBill');
     let rbot = getVal('rbotBill');
@@ -214,28 +209,73 @@ function updateSMS() {
                   `Total Shop Amount: Rs.${shopAmt}\n` +
                   `RSK Balance Due: Rs.${balance}`;
 
-    let smsUrl = "sms:" + phone + "?body=" + encodeURIComponent(message);
+    let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+    let delimiter = isIOS ? '&' : '?';
+    
+    let smsUrl = `sms:${phone}${delimiter}body=${encodeURIComponent(message)}`;
     document.getElementById('smsBtn').setAttribute("href", smsUrl);
 }
 
-// Event Listeners for real-time input
+// PDF Generation and Native Sharing Function
+async function generateAndSharePDF() {
+    const element = document.getElementById('ledgerCard');
+    const dateStr = document.getElementById('billDate').value.replace(/\//g, '-') || 'ledger';
+    const fileName = `Smart_EG_Ledger_${dateStr}.pdf`;
+
+    // Hide action buttons during PDF rendering
+    const btnGroup = document.querySelector('.btn-group');
+    btnGroup.style.display = 'none';
+
+    const options = {
+        margin:       10,
+        filename:     fileName,
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2 },
+        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    try {
+        // Generate PDF as Blob
+        const pdfBlob = await html2pdf().set(options).from(element).output('blob');
+        
+        // Restore buttons
+        btnGroup.style.display = 'flex';
+
+        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+        // Trigger Web Share API if supported by browser/device
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            await navigator.share({
+                files: [file],
+                title: 'Service Ledger PDF',
+                text: 'Here is the Service Ledger PDF from Smart EG Electronics.'
+            });
+        } else {
+            // Fallback: direct download
+            html2pdf().set(options).from(element).save();
+        }
+    } catch (error) {
+        btnGroup.style.display = 'flex';
+        console.error('Error generating PDF:', error);
+        // Fallback save in case share fails or is cancelled
+        html2pdf().set(options).from(element).save();
+    }
+}
+
+// Event Listeners
 inputIds.forEach(id => {
     let el = document.getElementById(id);
     if (el) {
         el.addEventListener('input', calculateAndSMS);
-        el.addEventListener('keyup', calculateAndSMS);
-        el.addEventListener('change', calculateAndSMS);
     }
 });
 
-// Re-trigger calculations instantly when returning to Safari tab
 document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible') {
         calculateAndSMS();
     }
 });
 
-// Startup Execution
 window.onload = function() {
     loadData();
     if (!document.getElementById('billDate').value) {
