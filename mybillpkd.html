@@ -15,7 +15,7 @@
         label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; color: #3a3a3c; }
         input, textarea { width: 100%; padding: 12px; border: 1px solid #c7c7cc; border-radius: 8px; font-size: 16px; outline: none; }
         input:focus, textarea:focus { border-color: #007aff; }
-        textarea { height: 90px; resize: vertical; }
+        textarea { height: 110px; resize: vertical; }
         .row { display: flex; gap: 10px; }
         .row .group { flex: 1; }
         .highlight-input { background-color: #e5f1ff; font-weight: bold; border-color: #007aff; color: #007aff; }
@@ -27,6 +27,7 @@
         .btn-sms:active { background: #28a745; }
         .btn-pdf { background: #007aff; color: white; }
         .btn-pdf:active { background: #0056b3; }
+        .hint { font-size: 12px; color: #007aff; font-weight: normal; margin-left: 5px; }
     </style>
 </head>
 <body>
@@ -45,10 +46,10 @@
         </div>
     </div>
 
-    <!-- Service Details -->
+    <!-- Service Details with Auto Sum -->
     <div class="group">
-        <label>Service Details (Description)</label>
-        <textarea id="serviceDetails" placeholder="ENTER Details"></textarea>
+        <label>Service Details <span class="hint">(Auto-sums amounts!)</span></label>
+        <textarea id="serviceDetails" placeholder="soldring = 100&#10;emergency = 250&#10;mager = 560"></textarea>
     </div>
 
     <!-- Additional Details / Notes -->
@@ -139,6 +140,33 @@ function setTodayDate() {
     document.getElementById('billDate').value = dd + '/' + mm + '/' + yyyy;
 }
 
+// Automatically calculates line items from Service Details
+function parseServiceDetailsSum() {
+    let text = document.getElementById('serviceDetails').value;
+    if (!text) return;
+
+    let lines = text.split('\n');
+    let total = 0;
+    let foundNumbers = false;
+
+    lines.forEach(line => {
+        // Find numbers in each line
+        let matches = line.match(/\d+(\.\d+)?/g);
+        if (matches && matches.length > 0) {
+            // Take the last number in the line as the price
+            let linePrice = parseFloat(matches[matches.length - 1]);
+            if (!isNaN(linePrice)) {
+                total += linePrice;
+                foundNumbers = true;
+            }
+        }
+    });
+
+    if (foundNumbers) {
+        document.getElementById('serviceTotal').value = total;
+    }
+}
+
 function calculateAndSMS() {
     let service = getVal('serviceTotal');
     let rsk = getVal('rskBill');
@@ -215,7 +243,7 @@ function updateSMS() {
     document.getElementById('smsBtn').setAttribute("href", smsUrl);
 }
 
-// Pure JS PDF Generator
+// Pure JS PDF Generator (Guarantees crisp PDF with no blank page issues)
 async function generateDirectPDF() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ unit: 'pt', format: 'a4' });
@@ -227,92 +255,95 @@ async function generateDirectPDF() {
 
     // Header Title
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(20);
+    doc.setFontSize(18);
     doc.setTextColor(28, 28, 30);
-    doc.text("Smart EG Electronics - Service Ledger", 40, 50);
+    doc.text("Smart EG Electronics - Service Ledger", 40, 45);
 
     doc.setLineWidth(1.5);
     doc.setDrawColor(0, 122, 255);
-    doc.line(40, 60, 555, 60);
+    doc.line(40, 55, 555, 55);
 
-    let y = 95;
+    let y = 80;
 
-    // Helper function for key-value styling
     function drawField(label, value, x, width, highlight = false) {
         doc.setFont("Helvetica", "bold");
-        doc.setFontSize(10);
+        doc.setFontSize(9);
         doc.setTextColor(100, 100, 100);
         doc.text(label.toUpperCase(), x, y);
 
         doc.setFillColor(highlight ? 229 : 250, highlight ? 241 : 250, highlight ? 255 : 250);
         doc.setDrawColor(200, 200, 200);
-        doc.roundedRect(x, y + 5, width, 30, 4, 4, 'FD');
+        doc.roundedRect(x, y + 4, width, 28, 4, 4, 'FD');
 
         doc.setFont("Helvetica", "normal");
-        doc.setFontSize(12);
+        doc.setFontSize(11);
         doc.setTextColor(0, 0, 0);
-        doc.text(String(value), x + 10, y + 24);
+        doc.text(String(value), x + 8, y + 22);
     }
 
-    // Row 1: Date & Mobile
+    // Date & Mobile
     drawField("Date", dateVal, 40, 245);
     drawField("Customer Mobile", phoneVal, 305, 250);
-    y += 55;
+    y += 48;
 
-    // Row 2: Description Text Area
+    // Service Details
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
     doc.text("SERVICE DETAILS (DESCRIPTION)", 40, y);
 
+    let splitDetails = doc.splitTextToSize(serviceDetailsVal, 495);
+    let boxHeight = Math.max(40, splitDetails.length * 15 + 10);
+
     doc.setFillColor(250, 250, 250);
     doc.setDrawColor(200, 200, 200);
-    doc.roundedRect(40, y + 5, 515, 45, 4, 4, 'FD');
+    doc.roundedRect(40, y + 4, 515, boxHeight, 4, 4, 'FD');
 
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
-    let splitDetails = doc.splitTextToSize(serviceDetailsVal, 495);
-    doc.text(splitDetails, 50, y + 22);
-    y += 70;
+    doc.text(splitDetails, 48, y + 20);
+    y += boxHeight + 20;
 
-    // Row 3: Additional Notes
+    // Additional Details
     doc.setFont("Helvetica", "bold");
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setTextColor(100, 100, 100);
     doc.text("ADDITIONAL DETAILS / NOTES", 40, y);
 
+    let splitAddl = doc.splitTextToSize(addlDetailsVal, 495);
+    let addlBoxHeight = Math.max(35, splitAddl.length * 15 + 10);
+
     doc.setFillColor(250, 250, 250);
     doc.setDrawColor(200, 200, 200);
-    doc.roundedRect(40, y + 5, 515, 45, 4, 4, 'FD');
+    doc.roundedRect(40, y + 4, 515, addlBoxHeight, 4, 4, 'FD');
 
     doc.setFont("Helvetica", "normal");
     doc.setFontSize(11);
     doc.setTextColor(0, 0, 0);
-    let splitAddl = doc.splitTextToSize(addlDetailsVal, 495);
-    doc.text(splitAddl, 50, y + 22);
-    y += 70;
+    doc.text(splitAddl, 48, y + 20);
+    y += addlBoxHeight + 20;
 
-    // Financial Values
+    // Financial Breakdown
     drawField("Total Service Amount (Rs.)", "Rs. " + (document.getElementById('serviceTotal').value || '0'), 40, 515, true);
-    y += 55;
+    y += 48;
 
     drawField("RSK Bill (Rs.)", "Rs. " + (document.getElementById('rskBill').value || '0'), 40, 245);
     drawField("Rbot Bill (Rs.)", "Rs. " + (document.getElementById('rbotBill').value || '0'), 305, 250);
-    y += 55;
+    y += 48;
 
     drawField("Component Bill Total (Rs.)", "Rs. " + (document.getElementById('componentBillTotal').value || '0'), 40, 245, true);
     drawField("RSK Balance Due (Rs.)", "Rs. " + (document.getElementById('balanceAmount').value || '0'), 305, 250);
-    y += 55;
+    y += 48;
 
     drawField("Total Amount Today (Rs.)", "Rs. " + (document.getElementById('grandTotalToday').value || '0'), 40, 245, true);
     drawField("Profit Amount Today (Rs.)", "Rs. " + (document.getElementById('todayProfitAmount').value || '0'), 305, 250, true);
-    y += 55;
+    y += 48;
 
     drawField("Old Shop Amount (Rs.)", "Rs. " + (document.getElementById('oldShopAmount').value || '0'), 40, 245);
     drawField("Total Shop Amount (Rs.)", "Rs. " + (document.getElementById('shopTotal').value || '0'), 305, 250, true);
 
-    // Save & Share logic
+    // PDF Output
     const safeDate = dateVal.replace(/\//g, '-');
     const fileName = `Smart_EG_Ledger_${safeDate}.pdf`;
 
@@ -334,10 +365,15 @@ async function generateDirectPDF() {
     }
 }
 
-// Event Listeners
+// Attach Event Listeners
+document.getElementById('serviceDetails').addEventListener('input', function() {
+    parseServiceDetailsSum();
+    calculateAndSMS();
+});
+
 inputIds.forEach(id => {
     let el = document.getElementById(id);
-    if (el) {
+    if (el && id !== 'serviceDetails') {
         el.addEventListener('input', calculateAndSMS);
     }
 });
@@ -353,6 +389,7 @@ window.onload = function() {
     if (!document.getElementById('billDate').value) {
         setTodayDate();
     }
+    parseServiceDetailsSum();
     calculateAndSMS();
 };
 </script>
