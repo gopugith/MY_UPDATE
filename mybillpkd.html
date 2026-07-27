@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart EG Electronics - Service Ledger</title>
-    <!-- Include html2pdf library for PDF generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <!-- Reliable Native jsPDF Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
         * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         body { background-color: #f2f2f7; margin: 0; padding: 15px; }
@@ -113,7 +113,7 @@
 
     <div class="btn-group">
         <a id="smsBtn" class="btn btn-sms" href="#">Send WebSMS</a>
-        <button id="pdfBtn" class="btn btn-pdf" onclick="generateAndSharePDF()">Export / Share PDF 📄</button>
+        <button id="pdfBtn" class="btn btn-pdf" onclick="generateDirectPDF()">Export / Share PDF 📄</button>
     </div>
 </div>
 
@@ -145,7 +145,6 @@ function calculateAndSMS() {
     let rbot = getVal('rbotBill');
     let oldShop = getVal('oldShopAmount');
 
-    // Calculations
     let componentTotal = rsk + rbot;
     document.getElementById('componentBillTotal').value = componentTotal;
 
@@ -216,49 +215,122 @@ function updateSMS() {
     document.getElementById('smsBtn').setAttribute("href", smsUrl);
 }
 
-// PDF Generation and Native Sharing Function
-async function generateAndSharePDF() {
-    const element = document.getElementById('ledgerCard');
-    const dateStr = document.getElementById('billDate').value.replace(/\//g, '-') || 'ledger';
-    const fileName = `Smart_EG_Ledger_${dateStr}.pdf`;
+// Pure JS PDF Generator
+async function generateDirectPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'a4' });
 
-    // Hide action buttons during PDF rendering
-    const btnGroup = document.querySelector('.btn-group');
-    btnGroup.style.display = 'none';
+    const dateVal = document.getElementById('billDate').value || '-';
+    const phoneVal = document.getElementById('phone').value || '-';
+    const serviceDetailsVal = document.getElementById('serviceDetails').value || 'N/A';
+    const addlDetailsVal = document.getElementById('additionalDetails').value || 'N/A';
 
-    const options = {
-        margin:       10,
-        filename:     fileName,
-        image:        { type: 'jpeg', quality: 0.98 },
-        html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
+    // Header Title
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(20);
+    doc.setTextColor(28, 28, 30);
+    doc.text("Smart EG Electronics - Service Ledger", 40, 50);
 
-    try {
-        // Generate PDF as Blob
-        const pdfBlob = await html2pdf().set(options).from(element).output('blob');
-        
-        // Restore buttons
-        btnGroup.style.display = 'flex';
+    doc.setLineWidth(1.5);
+    doc.setDrawColor(0, 122, 255);
+    doc.line(40, 60, 555, 60);
 
-        const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+    let y = 95;
 
-        // Trigger Web Share API if supported by browser/device
-        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    // Helper function for key-value styling
+    function drawField(label, value, x, width, highlight = false) {
+        doc.setFont("Helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text(label.toUpperCase(), x, y);
+
+        doc.setFillColor(highlight ? 229 : 250, highlight ? 241 : 250, highlight ? 255 : 250);
+        doc.setDrawColor(200, 200, 200);
+        doc.roundedRect(x, y + 5, width, 30, 4, 4, 'FD');
+
+        doc.setFont("Helvetica", "normal");
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text(String(value), x + 10, y + 24);
+    }
+
+    // Row 1: Date & Mobile
+    drawField("Date", dateVal, 40, 245);
+    drawField("Customer Mobile", phoneVal, 305, 250);
+    y += 55;
+
+    // Row 2: Description Text Area
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text("SERVICE DETAILS (DESCRIPTION)", 40, y);
+
+    doc.setFillColor(250, 250, 250);
+    doc.setDrawColor(200, 200, 200);
+    doc.roundedRect(40, y + 5, 515, 45, 4, 4, 'FD');
+
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    let splitDetails = doc.splitTextToSize(serviceDetailsVal, 495);
+    doc.text(splitDetails, 50, y + 22);
+    y += 70;
+
+    // Row 3: Additional Notes
+    doc.setFont("Helvetica", "bold");
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text("ADDITIONAL DETAILS / NOTES", 40, y);
+
+    doc.setFillColor(250, 250, 250);
+    doc.setDrawColor(200, 200, 200);
+    doc.roundedRect(40, y + 5, 515, 45, 4, 4, 'FD');
+
+    doc.setFont("Helvetica", "normal");
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
+    let splitAddl = doc.splitTextToSize(addlDetailsVal, 495);
+    doc.text(splitAddl, 50, y + 22);
+    y += 70;
+
+    // Financial Values
+    drawField("Total Service Amount (Rs.)", "Rs. " + (document.getElementById('serviceTotal').value || '0'), 40, 515, true);
+    y += 55;
+
+    drawField("RSK Bill (Rs.)", "Rs. " + (document.getElementById('rskBill').value || '0'), 40, 245);
+    drawField("Rbot Bill (Rs.)", "Rs. " + (document.getElementById('rbotBill').value || '0'), 305, 250);
+    y += 55;
+
+    drawField("Component Bill Total (Rs.)", "Rs. " + (document.getElementById('componentBillTotal').value || '0'), 40, 245, true);
+    drawField("RSK Balance Due (Rs.)", "Rs. " + (document.getElementById('balanceAmount').value || '0'), 305, 250);
+    y += 55;
+
+    drawField("Total Amount Today (Rs.)", "Rs. " + (document.getElementById('grandTotalToday').value || '0'), 40, 245, true);
+    drawField("Profit Amount Today (Rs.)", "Rs. " + (document.getElementById('todayProfitAmount').value || '0'), 305, 250, true);
+    y += 55;
+
+    drawField("Old Shop Amount (Rs.)", "Rs. " + (document.getElementById('oldShopAmount').value || '0'), 40, 245);
+    drawField("Total Shop Amount (Rs.)", "Rs. " + (document.getElementById('shopTotal').value || '0'), 305, 250, true);
+
+    // Save & Share logic
+    const safeDate = dateVal.replace(/\//g, '-');
+    const fileName = `Smart_EG_Ledger_${safeDate}.pdf`;
+
+    const pdfBlob = doc.output('blob');
+    const file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
             await navigator.share({
                 files: [file],
                 title: 'Service Ledger PDF',
-                text: 'Here is the Service Ledger PDF from Smart EG Electronics.'
+                text: 'Smart EG Electronics Ledger Summary'
             });
-        } else {
-            // Fallback: direct download
-            html2pdf().set(options).from(element).save();
+        } catch (err) {
+            doc.save(fileName);
         }
-    } catch (error) {
-        btnGroup.style.display = 'flex';
-        console.error('Error generating PDF:', error);
-        // Fallback save in case share fails or is cancelled
-        html2pdf().set(options).from(element).save();
+    } else {
+        doc.save(fileName);
     }
 }
 
