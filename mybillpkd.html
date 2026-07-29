@@ -21,7 +21,7 @@
         .highlight-input { background-color: #e5f1ff; font-weight: bold; border-color: #007aff; color: #007aff; }
         .profit-input { background-color: #e3f9e5; font-weight: bold; border-color: #34c759; color: #28a745; }
         .separate-input { background-color: #fff3cd; font-weight: bold; border-color: #ffc107; color: #856404; }
-        .readonly-input { background-color: #f2f2f7; color: #555; }
+        .readonly-input { background-color: #f2f2f7; color: #555; cursor: not-allowed; }
         
         .btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
         .btn { display: block; width: 100%; padding: 14px; text-align: center; text-decoration: none; border-radius: 10px; font-weight: 700; font-size: 16px; border: none; cursor: pointer; }
@@ -54,9 +54,9 @@
         <textarea id="serviceDetails" placeholder="ENTER serviceDetails"></textarea>
     </div>
 
-    <!-- Additional Details / Notes with Auto Sum for RSK & RBOT -->
+    <!-- Additional Details / Notes -->
     <div class="group">
-        <label>Additional Notes / Extras <span class="hint">(Auto-sums RSK & RBOT!)</span></label>
+        <label>Additional Notes / Extras <span class="hint">(Auto-sums separate amount!)</span></label>
         <textarea id="additionalDetails" placeholder="* RSK (
   TDEY= 100
   RTDG = 200
@@ -69,27 +69,27 @@
 )"></textarea>
     </div>
 
-    <!-- Service & Additional Total Row -->
+    <!-- Service & Additional Total Row (Disabled Manual Editing) -->
     <div class="row">
         <div class="group">
             <label>Service / Labour Total (₹)</label>
-            <input type="number" id="serviceTotal" placeholder="0" class="highlight-input">
+            <input type="number" id="serviceTotal" placeholder="0" class="highlight-input readonly-input" readonly>
         </div>
         <div class="group">
             <label>Additional Total (₹) <span class="hint">(Separate)</span></label>
-            <input type="number" id="additionalTotal" placeholder="0" class="separate-input">
+            <input type="number" id="additionalTotal" placeholder="0" class="separate-input readonly-input" readonly>
         </div>
     </div>
 
-    <!-- Bills Breakdown: RSK & Rbot -->
+    <!-- Bills Breakdown: RSK & Rbot (Disabled Manual Editing) -->
     <div class="row">
         <div class="group">
             <label>RSK Component Bill (₹)</label>
-            <input type="number" id="rskBill" placeholder="0">
+            <input type="number" id="rskBill" placeholder="0" class="readonly-input" readonly>
         </div>
         <div class="group">
             <label>Rbot Component Bill (₹)</label>
-            <input type="number" id="rbotBill" placeholder="0">
+            <input type="number" id="rbotBill" placeholder="0" class="readonly-input" readonly>
         </div>
     </div>
 
@@ -103,11 +103,11 @@
     <div class="row">
         <div class="group">
             <label>Grand Total Bill (₹)</label>
-            <input type="number" id="grandTotalToday" class="highlight-input" placeholder="0" readonly>
+            <input type="number" id="grandTotalToday" class="highlight-input readonly-input" placeholder="0" readonly>
         </div>
         <div class="group">
             <label>Net Profit Today (₹)</label>
-            <input type="number" id="todayProfitAmount" class="profit-input" placeholder="0" readonly>
+            <input type="number" id="todayProfitAmount" class="profit-input readonly-input" placeholder="0" readonly>
         </div>
     </div>
 
@@ -125,7 +125,7 @@
 
     <div class="group">
         <label>Updated Shop Ledger Balance (₹)</label>
-        <input type="number" id="shopTotal" class="profit-input" placeholder="0" readonly>
+        <input type="number" id="shopTotal" class="profit-input readonly-input" placeholder="0" readonly>
     </div>
 
     <div class="btn-group">
@@ -158,11 +158,13 @@ function updateTodayDate() {
 
 function parseTextareaSum(textareaId, targetInputId) {
     let text = document.getElementById(textareaId).value;
-    if (!text) return;
+    if (!text) {
+        document.getElementById(targetInputId).value = 0;
+        return;
+    }
 
     let lines = text.split('\n');
     let total = 0;
-    let foundNumbers = false;
 
     lines.forEach(line => {
         let matches = line.match(/\d+(\.\d+)?/g);
@@ -170,26 +172,23 @@ function parseTextareaSum(textareaId, targetInputId) {
             let linePrice = parseFloat(matches[matches.length - 1]);
             if (!isNaN(linePrice)) {
                 total += linePrice;
-                foundNumbers = true;
             }
         }
     });
 
-    if (foundNumbers) {
-        document.getElementById(targetInputId).value = total;
-    }
+    document.getElementById(targetInputId).value = total;
 }
 
-// Specialized parser for extracting RSK and RBOT values from Additional Details
+// Smart parser for RSK and RBOT blocks
 function parseAdditionalVendorDetails() {
     let text = document.getElementById('additionalDetails').value;
-    if (!text) return;
+    if (!text) {
+        document.getElementById('rskBill').value = 0;
+        document.getElementById('rbotBill').value = 0;
+        document.getElementById('additionalTotal').value = 0;
+        return;
+    }
 
-    let rskTotal = 0;
-    let rbotTotal = 0;
-    let grandAdditional = 0;
-
-    // Helper to calculate total numbers inside a given block text
     function sumBlockNumbers(blockText) {
         let lines = blockText.split('\n');
         let blockSum = 0;
@@ -205,21 +204,18 @@ function parseAdditionalVendorDetails() {
         return blockSum;
     }
 
-    // Match RSK block: * RSK (...)
+    // RSK Block
     let rskMatch = text.match(/\*\s*RSK\s*\(([^)]+)\)/i);
-    if (rskMatch && rskMatch[1]) {
-        rskTotal = sumBlockNumbers(rskMatch[1]);
-        document.getElementById('rskBill').value = rskTotal;
-    }
+    let rskTotal = (rskMatch && rskMatch[1]) ? sumBlockNumbers(rskMatch[1]) : 0;
+    document.getElementById('rskBill').value = rskTotal;
 
-    // Match RBOT block: * RBOT (...)
+    // RBOT Block
     let rbotMatch = text.match(/\*\s*RBOT\s*\(([^)]+)\)/i);
-    if (rbotMatch && rbotMatch[1]) {
-        rbotTotal = sumBlockNumbers(rbotMatch[1]);
-        document.getElementById('rbotBill').value = rbotTotal;
-    }
+    let rbotTotal = (rbotMatch && rbotMatch[1]) ? sumBlockNumbers(rbotMatch[1]) : 0;
+    document.getElementById('rbotBill').value = rbotTotal;
 
-    // Overall additional total across the entire text area
+    // Additional Grand Total
+    let grandAdditional = 0;
     let allLines = text.split('\n');
     allLines.forEach(line => {
         let matches = line.match(/\d+(\.\d+)?/g);
@@ -231,9 +227,7 @@ function parseAdditionalVendorDetails() {
         }
     });
 
-    if (grandAdditional > 0) {
-        document.getElementById('additionalTotal').value = grandAdditional;
-    }
+    document.getElementById('additionalTotal').value = grandAdditional;
 }
 
 function calculateAndSMS() {
@@ -242,7 +236,7 @@ function calculateAndSMS() {
     let rbot = getVal('rbotBill');
     let oldShop = getVal('oldShopAmount');
 
-    // Parts Total = RSK + Rbot
+    // Component Bill Total = RSK + Rbot
     let componentTotal = rsk + rbot;
     document.getElementById('componentBillTotal').value = componentTotal;
 
@@ -316,7 +310,6 @@ async function generateDirectPDF() {
     const serviceDetailsVal = document.getElementById('serviceDetails').value || 'N/A';
     const addlDetailsVal = document.getElementById('additionalDetails').value || 'N/A';
 
-    // Header Title
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(20);
     doc.setTextColor(0, 122, 255);
@@ -352,7 +345,7 @@ async function generateDirectPDF() {
     drawField("Customer Mobile", phoneVal, 305, 250);
     y += 45;
 
-    // Service Description Box
+    // Service Description
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
@@ -371,7 +364,7 @@ async function generateDirectPDF() {
     doc.text(splitDetails, 48, y + 18);
     y += boxHeight + 15;
 
-    // Notes Box
+    // Additional Notes Box
     doc.setFont("Helvetica", "bold");
     doc.setFontSize(8);
     doc.setTextColor(100, 100, 100);
@@ -431,7 +424,7 @@ async function generateDirectPDF() {
     }
 }
 
-// Attach Event Listeners
+// Event Listeners
 document.getElementById('serviceDetails').addEventListener('input', function() {
     parseTextareaSum('serviceDetails', 'serviceTotal');
     calculateAndSMS();
@@ -458,7 +451,7 @@ document.addEventListener('visibilitychange', function() {
 
 window.onload = function() {
     loadData();
-    updateTodayDate(); // Always force update date to current day on page load
+    updateTodayDate();
     parseTextareaSum('serviceDetails', 'serviceTotal');
     parseAdditionalVendorDetails();
     calculateAndSMS();
