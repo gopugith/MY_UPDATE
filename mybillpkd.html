@@ -69,7 +69,7 @@
 )"></textarea>
     </div>
 
-    <!-- Service & Additional Total Row (Disabled Manual Editing) -->
+    <!-- Service & Additional Total Row -->
     <div class="row">
         <div class="group">
             <label>Service / Labour Total (₹)</label>
@@ -81,7 +81,7 @@
         </div>
     </div>
 
-    <!-- Bills Breakdown: RSK & Rbot (Disabled Manual Editing) -->
+    <!-- Bills Breakdown: RSK & Rbot -->
     <div class="row">
         <div class="group">
             <label>RSK Component Bill (₹)</label>
@@ -147,13 +147,21 @@ function getVal(id) {
     return isNaN(num) ? 0 : num;
 }
 
-// Automatically sets today's date in DD/MM/YYYY format
 function updateTodayDate() {
     let today = new Date();
     let dd = String(today.getDate()).padStart(2, '0');
     let mm = String(today.getMonth() + 1).padStart(2, '0');
     let yyyy = today.getFullYear();
     document.getElementById('billDate').value = dd + '/' + mm + '/' + yyyy;
+}
+
+function extractLastNumber(line) {
+    let matches = line.match(/\d+(\.\d+)?/g);
+    if (matches && matches.length > 0) {
+        let price = parseFloat(matches[matches.length - 1]);
+        return isNaN(price) ? 0 : price;
+    }
+    return 0;
 }
 
 function parseTextareaSum(textareaId, targetInputId) {
@@ -167,19 +175,12 @@ function parseTextareaSum(textareaId, targetInputId) {
     let total = 0;
 
     lines.forEach(line => {
-        let matches = line.match(/\d+(\.\d+)?/g);
-        if (matches && matches.length > 0) {
-            let linePrice = parseFloat(matches[matches.length - 1]);
-            if (!isNaN(linePrice)) {
-                total += linePrice;
-            }
-        }
+        total += extractLastNumber(line);
     });
 
     document.getElementById(targetInputId).value = total;
 }
 
-// Smart parser for RSK and RBOT blocks
 function parseAdditionalVendorDetails() {
     let text = document.getElementById('additionalDetails').value;
     if (!text) {
@@ -193,38 +194,29 @@ function parseAdditionalVendorDetails() {
         let lines = blockText.split('\n');
         let blockSum = 0;
         lines.forEach(line => {
-            let matches = line.match(/\d+(\.\d+)?/g);
-            if (matches && matches.length > 0) {
-                let price = parseFloat(matches[matches.length - 1]);
-                if (!isNaN(price)) {
-                    blockSum += price;
-                }
-            }
+            blockSum += extractLastNumber(line);
         });
         return blockSum;
     }
 
-    // RSK Block
+    // Parse RSK block
     let rskMatch = text.match(/\*\s*RSK\s*\(([^)]+)\)/i);
     let rskTotal = (rskMatch && rskMatch[1]) ? sumBlockNumbers(rskMatch[1]) : 0;
     document.getElementById('rskBill').value = rskTotal;
 
-    // RBOT Block
+    // Parse RBOT block
     let rbotMatch = text.match(/\*\s*RBOT\s*\(([^)]+)\)/i);
     let rbotTotal = (rbotMatch && rbotMatch[1]) ? sumBlockNumbers(rbotMatch[1]) : 0;
     document.getElementById('rbotBill').value = rbotTotal;
 
-    // Additional Grand Total
+    // Remove block sections before summing standalone additional items
+    let cleanedText = text
+        .replace(/\*\s*RSK\s*\([^)]*\)/gi, '')
+        .replace(/\*\s*RBOT\s*\([^)]*\)/gi, '');
+
     let grandAdditional = 0;
-    let allLines = text.split('\n');
-    allLines.forEach(line => {
-        let matches = line.match(/\d+(\.\d+)?/g);
-        if (matches && matches.length > 0) {
-            let linePrice = parseFloat(matches[matches.length - 1]);
-            if (!isNaN(linePrice)) {
-                grandAdditional += linePrice;
-            }
-        }
+    cleanedText.split('\n').forEach(line => {
+        grandAdditional += extractLastNumber(line);
     });
 
     document.getElementById('additionalTotal').value = grandAdditional;
@@ -236,19 +228,15 @@ function calculateAndSMS() {
     let rbot = getVal('rbotBill');
     let oldShop = getVal('oldShopAmount');
 
-    // Component Bill Total = RSK + Rbot
     let componentTotal = rsk + rbot;
     document.getElementById('componentBillTotal').value = componentTotal;
 
-    // Grand Total Bill = Service / Labour Total + Component Bill Total
     let grandTotal = serviceLabour + componentTotal;
     document.getElementById('grandTotalToday').value = grandTotal;
 
-    // Net Profit Today = Service / Labour Total - Component Bill Total
     let profitAmt = serviceLabour - componentTotal;
     document.getElementById('todayProfitAmount').value = profitAmt;
 
-    // Updated Shop Ledger Balance = Old Shop Balance + Net Profit Today
     let totalShopAmt = oldShop + profitAmt;
     document.getElementById('shopTotal').value = totalShopAmt;
 
@@ -283,6 +271,9 @@ function updateSMS() {
     let service = getVal('serviceTotal');
     let additional = getVal('additionalTotal');
     let grandTotal = getVal('grandTotalToday');
+    let profit = getVal('todayProfitAmount');
+    let oldShop = getVal('oldShopAmount');
+    let shopTotal = getVal('shopTotal');
     let balance = getVal('balanceAmount');
 
     let message = `Smart EG Electronics (${dateStr})\n` +
@@ -291,7 +282,10 @@ function updateSMS() {
                   `Service Charge: Rs.${service}\n` +
                   (additional > 0 ? `Additional Total (Separate): Rs.${additional}\n` : '') +
                   `Grand Total: Rs.${grandTotal}\n` +
+                  `Net Profit Today: Rs.${profit}\n` +
                   `RSK Balance Due: Rs.${balance}\n` +
+                  `Old Shop Balance: Rs.${oldShop}\n` +
+                  `Updated Shop Ledger Balance: Rs.${shopTotal}\n` +
                   `Thank you!`;
 
     let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
