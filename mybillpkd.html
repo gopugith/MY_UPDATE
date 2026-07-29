@@ -15,7 +15,7 @@
         label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; color: #3a3a3c; }
         input, textarea { width: 100%; padding: 12px; border: 1px solid #c7c7cc; border-radius: 8px; font-size: 16px; outline: none; }
         input:focus, textarea:focus { border-color: #007aff; }
-        textarea { height: 90px; resize: vertical; }
+        textarea { height: 110px; resize: vertical; }
         .row { display: flex; gap: 10px; }
         .row .group { flex: 1; }
         .highlight-input { background-color: #e5f1ff; font-weight: bold; border-color: #007aff; color: #007aff; }
@@ -54,10 +54,19 @@
         <textarea id="serviceDetails" placeholder="ENTER serviceDetails"></textarea>
     </div>
 
-    <!-- Additional Details / Notes with Auto Sum -->
+    <!-- Additional Details / Notes with Auto Sum for RSK & RBOT -->
     <div class="group">
-        <label>Additional Notes / Extras <span class="hint">(Auto-sums separate amount!)</span></label>
-        <textarea id="additionalDetails" placeholder="Enter separate notes or extra item details..."></textarea>
+        <label>Additional Notes / Extras <span class="hint">(Auto-sums RSK & RBOT!)</span></label>
+        <textarea id="additionalDetails" placeholder="* RSK (
+  TDEY= 100
+  RTDG = 200
+  REET = 10
+)
+* RBOT (
+  UDEY= 100
+  UTDG = 200
+  RUET = 10
+)"></textarea>
     </div>
 
     <!-- Service & Additional Total Row -->
@@ -105,7 +114,7 @@
     <!-- Ledger Balances -->
     <div class="row">
         <div class="group">
-            <label>RSK Outstanding Due </label>
+            <label>RSK Outstanding Due (₹)</label>
             <input type="number" id="balanceAmount" placeholder="0">
         </div>
         <div class="group">
@@ -168,6 +177,62 @@ function parseTextareaSum(textareaId, targetInputId) {
 
     if (foundNumbers) {
         document.getElementById(targetInputId).value = total;
+    }
+}
+
+// Specialized parser for extracting RSK and RBOT values from Additional Details
+function parseAdditionalVendorDetails() {
+    let text = document.getElementById('additionalDetails').value;
+    if (!text) return;
+
+    let rskTotal = 0;
+    let rbotTotal = 0;
+    let grandAdditional = 0;
+
+    // Helper to calculate total numbers inside a given block text
+    function sumBlockNumbers(blockText) {
+        let lines = blockText.split('\n');
+        let blockSum = 0;
+        lines.forEach(line => {
+            let matches = line.match(/\d+(\.\d+)?/g);
+            if (matches && matches.length > 0) {
+                let price = parseFloat(matches[matches.length - 1]);
+                if (!isNaN(price)) {
+                    blockSum += price;
+                }
+            }
+        });
+        return blockSum;
+    }
+
+    // Match RSK block: * RSK (...)
+    let rskMatch = text.match(/\*\s*RSK\s*\(([^)]+)\)/i);
+    if (rskMatch && rskMatch[1]) {
+        rskTotal = sumBlockNumbers(rskMatch[1]);
+        document.getElementById('rskBill').value = rskTotal;
+    }
+
+    // Match RBOT block: * RBOT (...)
+    let rbotMatch = text.match(/\*\s*RBOT\s*\(([^)]+)\)/i);
+    if (rbotMatch && rbotMatch[1]) {
+        rbotTotal = sumBlockNumbers(rbotMatch[1]);
+        document.getElementById('rbotBill').value = rbotTotal;
+    }
+
+    // Overall additional total across the entire text area
+    let allLines = text.split('\n');
+    allLines.forEach(line => {
+        let matches = line.match(/\d+(\.\d+)?/g);
+        if (matches && matches.length > 0) {
+            let linePrice = parseFloat(matches[matches.length - 1]);
+            if (!isNaN(linePrice)) {
+                grandAdditional += linePrice;
+            }
+        }
+    });
+
+    if (grandAdditional > 0) {
+        document.getElementById('additionalTotal').value = grandAdditional;
     }
 }
 
@@ -373,7 +438,7 @@ document.getElementById('serviceDetails').addEventListener('input', function() {
 });
 
 document.getElementById('additionalDetails').addEventListener('input', function() {
-    parseTextareaSum('additionalDetails', 'additionalTotal');
+    parseAdditionalVendorDetails();
     calculateAndSMS();
 });
 
@@ -395,7 +460,7 @@ window.onload = function() {
     loadData();
     updateTodayDate(); // Always force update date to current day on page load
     parseTextareaSum('serviceDetails', 'serviceTotal');
-    parseTextareaSum('additionalDetails', 'additionalTotal');
+    parseAdditionalVendorDetails();
     calculateAndSMS();
 };
 </script>
