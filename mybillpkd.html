@@ -56,7 +56,7 @@
 
     <!-- Additional Details / Notes -->
     <div class="group">
-        <label>Additional Notes / Extras <span class="hint">(Auto-sums separate amount!)</span></label>
+        <label>Additional Notes / Extras <span class="hint">(*RSK(....)*RBOT(....))</span></label>
         <textarea id="additionalDetails" placeholder="* RSK (
   TDEY= 100
   RTDG = 200
@@ -114,7 +114,7 @@
     <!-- Ledger Balances -->
     <div class="row">
         <div class="group">
-            <label>RSK Outstanding Due (₹)</label>
+            <label>RSK Outstanding Due </label>
             <input type="number" id="balanceAmount" placeholder="0">
         </div>
         <div class="group">
@@ -284,8 +284,6 @@ function updateSMS() {
     let additional = getVal('additionalTotal');
     let grandTotal = getVal('grandTotalToday');
     let balance = getVal('balanceAmount');
-    let oldShop = getVal('oldShopAmount');
-    let updatedShop = getVal('shopTotal');
 
     let message = `Smart EG Electronics (${dateStr})\n` +
                   (details ? `Service:\n${details}\n` : '') +
@@ -294,8 +292,6 @@ function updateSMS() {
                   (additional > 0 ? `Additional Total (Separate): Rs.${additional}\n` : '') +
                   `Grand Total: Rs.${grandTotal}\n` +
                   `RSK Balance Due: Rs.${balance}\n` +
-                  `Old Shop Balance: Rs.${oldShop}\n` +
-                  `Updated Shop Ledger Balance: Rs.${updatedShop}\n` +
                   `Thank you!`;
 
     let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
