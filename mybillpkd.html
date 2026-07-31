@@ -57,8 +57,7 @@
     <!-- Additional Details / Notes -->
     <div class="group">
         <label>Additional Notes / Extras <span class="hint">(*RSK(....)*RBOT(....))</span></label>
-        <textarea id="additionalDetails" placeholder="Enter components & price "
-            ></textarea>
+        <textarea id="additionalDetails" placeholder="Enter components & price"></textarea>
     </div>
 
     <!-- Service & Additional Total Row -->
@@ -139,12 +138,43 @@ function getVal(id) {
     return isNaN(num) ? 0 : num;
 }
 
-function updateTodayDate() {
+function checkAndHandleNewDate() {
     let today = new Date();
     let dd = String(today.getDate()).padStart(2, '0');
     let mm = String(today.getMonth() + 1).padStart(2, '0');
     let yyyy = today.getFullYear();
-    document.getElementById('billDate').value = dd + '/' + mm + '/' + yyyy;
+    let todayStr = dd + '/' + mm + '/' + yyyy;
+
+    let lastSavedDate = localStorage.getItem('ledger_lastSavedDate');
+    document.getElementById('billDate').value = todayStr;
+
+    // Check if the calendar date changed since the last session
+    if (lastSavedDate && lastSavedDate !== todayStr) {
+        // Preserve previous ending shop balance as the new starting Old Shop Balance
+        let lastShopTotal = localStorage.getItem('ledger_shopTotal') || '0';
+
+        // Clear previous day's inputs stored in localStorage
+        inputIds.forEach(id => {
+            localStorage.removeItem('ledger_' + id);
+        });
+
+        // Clear all form text/number fields
+        inputIds.forEach(id => {
+            let el = document.getElementById(id);
+            if (el) el.value = '';
+        });
+
+        // Set default phone & carry forward the shop balance
+        document.getElementById('phone').value = '9746620682';
+        document.getElementById('oldShopAmount').value = lastShopTotal;
+        localStorage.setItem('ledger_oldShopAmount', lastShopTotal);
+    } else {
+        // Same day: load existing session data
+        loadData();
+    }
+
+    // Save today's date key
+    localStorage.setItem('ledger_lastSavedDate', todayStr);
 }
 
 function extractLastNumber(line) {
@@ -243,6 +273,7 @@ function saveData() {
             localStorage.setItem('ledger_' + id, el.value);
         }
     });
+    localStorage.setItem('ledger_shopTotal', document.getElementById('shopTotal').value || '0');
 }
 
 function loadData() {
@@ -436,14 +467,15 @@ inputIds.forEach(id => {
 
 document.addEventListener('visibilitychange', function() {
     if (document.visibilityState === 'visible') {
-        updateTodayDate();
+        checkAndHandleNewDate();
+        parseTextareaSum('serviceDetails', 'serviceTotal');
+        parseAdditionalVendorDetails();
         calculateAndSMS();
     }
 });
 
 window.onload = function() {
-    loadData();
-    updateTodayDate();
+    checkAndHandleNewDate();
     parseTextareaSum('serviceDetails', 'serviceTotal');
     parseAdditionalVendorDetails();
     calculateAndSMS();
