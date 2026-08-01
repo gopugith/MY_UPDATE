@@ -15,12 +15,13 @@
         label { display: block; font-weight: 600; font-size: 14px; margin-bottom: 6px; color: #3a3a3c; }
         input, textarea { width: 100%; padding: 12px; border: 1px solid #c7c7cc; border-radius: 8px; font-size: 16px; outline: none; }
         input:focus, textarea:focus { border-color: #007aff; }
-        textarea { height: 90px; resize: vertical; }
+        textarea { height: 110px; resize: vertical; }
         .row { display: flex; gap: 10px; }
         .row .group { flex: 1; }
         .highlight-input { background-color: #e5f1ff; font-weight: bold; border-color: #007aff; color: #007aff; }
         .profit-input { background-color: #e3f9e5; font-weight: bold; border-color: #34c759; color: #28a745; }
         .separate-input { background-color: #fff3cd; font-weight: bold; border-color: #ffc107; color: #856404; }
+        .gpay-input { background-color: #f3e8ff; font-weight: bold; border-color: #a855f7; color: #6b21a8; }
         .readonly-input { background-color: #f2f2f7; color: #555; cursor: not-allowed; }
         
         .btn-group { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
@@ -39,7 +40,7 @@
 
     <div class="row">
         <div class="group">
-            <label>Date <span class="hint"></span></label>
+            <label>Date <span class="hint">(Auto-updates)</span></label>
             <input type="text" id="billDate">
         </div>
         <div class="group">
@@ -50,32 +51,38 @@
 
     <!-- Service Details with Auto Sum -->
     <div class="group">
-        <label>Service Details <span class="hint"></span></label>
+        <label>Service Details <span class="hint">(Write "(gpy)" for GPay lines)</span></label>
         <textarea id="serviceDetails" placeholder=" "></textarea>
+    </div>
+
+    <!-- Total GPay Amount (Read-Only) -->
+    <div class="group">
+        <label>Total GPay Amount (₹) <span class="hint"> </span></label>
+        <input type="number" id="totalGpayAmount" placeholder="0" class="gpay-input readonly-input" readonly>
     </div>
 
     <!-- Structured Vendor Extra Notes (RSK & RBOT Side-by-Side) -->
     <div class="row">
         <div class="group">
-            <label>RSK Component Bill <span class="hint"></span></label>
+            <label>RSK Component Notes <span class="hint">(RSK Bill)</span></label>
             <textarea id="rskDetails" placeholder=" "></textarea>
         </div>
         <div class="group">
-            <label>RBOT Component Bill <span class="hint"></span></label>
+            <label>RBOT Component Notes <span class="hint">(RBOT Bill)</span></label>
             <textarea id="rbotDetails" placeholder=" "></textarea>
         </div>
     </div>
 
-    <!-- Additional General Notes Field (Calculates Additional Total ONLY) -->
+    <!-- Additional General Notes Field -->
     <div class="group">
-        <label>Additional Notes <span class="hint"></span></label>
-        <textarea id="generalNotes" placeholder=" "></textarea>
+        <label>Additional Notes <span class="hint"> </span></label>
+        <textarea id="generalNotes" placeholder=""></textarea>
     </div>
 
     <!-- Service & Additional Total Row -->
     <div class="row">
         <div class="group">
-            <label>Service / Labour Total </label>
+            <label>Service / Labour Total (₹)</label>
             <input type="number" id="serviceTotal" placeholder="0" class="highlight-input readonly-input" readonly>
         </div>
         <div class="group">
@@ -127,7 +134,7 @@
     </div>
 
     <div class="group">
-        <label>Updated Shop Ledger Balance (₹)</label>
+        <label>Updated Shop Ledger Balance (₹) <span class="hint">(- GPay Amount)</span></label>
         <input type="number" id="shopTotal" class="profit-input readonly-input" placeholder="0" readonly>
     </div>
 
@@ -140,7 +147,8 @@
 <script>
 const inputIds = [
     'serviceTotal', 'additionalTotal', 'oldShopAmount', 'rskBill', 'rbotBill', 
-    'balanceAmount', 'phone', 'serviceDetails', 'rskDetails', 'rbotDetails', 'generalNotes'
+    'balanceAmount', 'phone', 'serviceDetails', 'rskDetails', 'rbotDetails', 'generalNotes',
+    'totalGpayAmount'
 ];
 
 function getVal(id) {
@@ -179,41 +187,69 @@ function parseTextareaSum(textareaId) {
     return total;
 }
 
+// Parses Service Details for both Total Service Cost AND GPay amounts
+function parseServiceDetails() {
+    let text = document.getElementById('serviceDetails').value;
+    if (!text) return { serviceTotal: 0, gpayTotal: 0 };
+
+    let lines = text.split('\n');
+    let serviceTotal = 0;
+    let gpayTotal = 0;
+
+    lines.forEach(line => {
+        let matches = line.match(/\d+(\.\d+)?/g);
+        if (matches && matches.length > 0) {
+            let linePrice = parseFloat(matches[matches.length - 1]);
+            if (!isNaN(linePrice)) {
+                serviceTotal += linePrice;
+                
+                // If line mentions gpy / gpay / g-pay, aggregate into GPay total
+                if (/gpay|gpy|g-pay/i.test(line)) {
+                    gpayTotal += linePrice;
+                }
+            }
+        }
+    });
+
+    return { serviceTotal, gpayTotal };
+}
+
 function parseAdditionalVendorDetails() {
     let rskTotal = parseTextareaSum('rskDetails');
     let rbotTotal = parseTextareaSum('rbotDetails');
     let generalNotesTotal = parseTextareaSum('generalNotes');
 
-    // RSK & RBOT only update Component Bills
     document.getElementById('rskBill').value = rskTotal;
     document.getElementById('rbotBill').value = rbotTotal;
-    
-    // Additional Total comes ONLY from Additional Notes
     document.getElementById('additionalTotal').value = generalNotesTotal;
 }
 
 function calculateAndSMS() {
-    let serviceLabour = parseTextareaSum('serviceDetails');
-    document.getElementById('serviceTotal').value = serviceLabour;
+    let serviceData = parseServiceDetails();
+    document.getElementById('serviceTotal').value = serviceData.serviceTotal;
+
+    // Auto-update Total GPay Amount field from Service Details
+    document.getElementById('totalGpayAmount').value = serviceData.gpayTotal;
 
     let rsk = getVal('rskBill');
     let rbot = getVal('rbotBill');
     let oldShop = getVal('oldShopAmount');
+    let gpayAmt = serviceData.gpayTotal;
 
     // Component Bill Total = RSK + Rbot
     let componentTotal = rsk + rbot;
     document.getElementById('componentBillTotal').value = componentTotal;
 
     // Grand Total Bill = Service / Labour Total + Component Bill Total
-    let grandTotal = serviceLabour + componentTotal;
+    let grandTotal = serviceData.serviceTotal + componentTotal;
     document.getElementById('grandTotalToday').value = grandTotal;
 
     // Net Profit Today = Service / Labour Total - Component Bill Total
-    let profitAmt = serviceLabour - componentTotal;
+    let profitAmt = serviceData.serviceTotal - componentTotal;
     document.getElementById('todayProfitAmount').value = profitAmt;
 
-    // Updated Shop Ledger Balance = Old Shop Balance + Net Profit Today
-    let totalShopAmt = oldShop + profitAmt;
+    // Updated Shop Ledger Balance = Old Shop Balance + Net Profit Today - GPay Amount
+    let totalShopAmt = oldShop + profitAmt - gpayAmt;
     document.getElementById('shopTotal').value = totalShopAmt;
 
     saveData();
@@ -250,6 +286,7 @@ function updateSMS() {
     let additional = getVal('additionalTotal');
     let grandTotal = getVal('grandTotalToday');
     let balance = getVal('balanceAmount');
+    let gpay = getVal('totalGpayAmount');
 
     let extraText = '';
     if (rskNotes) extraText += `\n* RSK:\n${rskNotes}`;
@@ -260,6 +297,7 @@ function updateSMS() {
                   (extraText ? `Vendor Details:${extraText}\n` : '') +
                   (generalNotes ? `Additional Notes:\n${generalNotes}\n` : '') +
                   `Service Charge: Rs.${service}\n` +
+                  (gpay > 0 ? `GPay Paid: Rs.${gpay}\n` : '') +
                   (additional > 0 ? `Additional Total (Separate): Rs.${additional}\n` : '') +
                   `Grand Total: Rs.${grandTotal}\n` +
                   `RSK Balance Due: Rs.${balance}\n` +
@@ -382,19 +420,19 @@ async function generateDirectPDF() {
 
     // Financial Breakdown
     drawField("Service / Labour (Rs.)", "Rs. " + (document.getElementById('serviceTotal').value || '0'), 40, 245);
-    drawField("Additional Total  (Rs.)", "Rs. " + (document.getElementById('additionalTotal').value || '0'), 305, 250);
+    drawField("Total GPay Amount (Rs.)", "Rs. " + (document.getElementById('totalGpayAmount').value || '0'), 305, 250);
     y += 45;
 
-    drawField("RSK Bill ", "Rs. " + (document.getElementById('rskBill').value || '0'), 40, 245);
-    drawField("Rbot Bill ", "Rs. " + (document.getElementById('rbotBill').value || '0'), 305, 250);
+    drawField("Additional Total (Separate) (Rs.)", "Rs. " + (document.getElementById('additionalTotal').value || '0'), 40, 245);
+    drawField("RSK Balance Due (Rs.)", "Rs. " + (document.getElementById('balanceAmount').value || '0'), 305, 250);
+    y += 45;
+
+    drawField("RSK Bill (Rs.)", "Rs. " + (document.getElementById('rskBill').value || '0'), 40, 245);
+    drawField("Rbot Bill (Rs.)", "Rs. " + (document.getElementById('rbotBill').value || '0'), 305, 250);
     y += 45;
 
     drawField("Component Bill Total (Rs.)", "Rs. " + (document.getElementById('componentBillTotal').value || '0'), 40, 245);
-    drawField("RSK Balance Due ", "Rs. " + (document.getElementById('balanceAmount').value || '0'), 305, 250);
-    y += 45;
-
-    drawField("Grand Total Bill (Rs.)", "Rs. " + (document.getElementById('grandTotalToday').value || '0'), 40, 245, true);
-    drawField("Net Profit Today (Rs.)", "Rs. " + (document.getElementById('todayProfitAmount').value || '0'), 305, 250, true);
+    drawField("Grand Total Bill (Rs.)", "Rs. " + (document.getElementById('grandTotalToday').value || '0'), 305, 250, true);
     y += 45;
 
     drawField("Old Shop Ledger (Rs.)", "Rs. " + (document.getElementById('oldShopAmount').value || '0'), 40, 245);
