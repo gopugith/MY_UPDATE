@@ -233,6 +233,7 @@ function calculateAndSMS() {
 
     let rsk = getVal('rskBill');
     let rbot = getVal('rbotBill');
+    let additional = getVal('additionalTotal');
     let oldShop = getVal('oldShopAmount');
     let gpayAmt = serviceData.gpayTotal;
 
@@ -244,8 +245,8 @@ function calculateAndSMS() {
     let grandTotal = serviceData.serviceTotal + componentTotal;
     document.getElementById('grandTotalToday').value = grandTotal;
 
-    // Net Profit Today = Service / Labour Total - Component Bill Total
-    let profitAmt = serviceData.serviceTotal - componentTotal;
+    // Net Profit Today = Service / Labour Total - Component Bill Total - Additional Total
+    let profitAmt = serviceData.serviceTotal - componentTotal - additional;
     document.getElementById('todayProfitAmount').value = profitAmt;
 
     // Updated Shop Ledger Balance = Old Shop Balance + Net Profit Today - GPay Amount
