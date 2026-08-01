@@ -286,6 +286,7 @@ function updateSMS() {
     let service = getVal('serviceTotal');
     let additional = getVal('additionalTotal');
     let grandTotal = getVal('grandTotalToday');
+    let netProfit = getVal('todayProfitAmount');
     let balance = getVal('balanceAmount');
     let gpay = getVal('totalGpayAmount');
 
@@ -301,6 +302,7 @@ function updateSMS() {
                   (gpay > 0 ? `GPay Paid: Rs.${gpay}\n` : '') +
                   (additional > 0 ? `Additional Total (Separate): Rs.${additional}\n` : '') +
                   `Grand Total: Rs.${grandTotal}\n` +
+                  `Net Profit Today: Rs.${netProfit}\n` +
                   `RSK Balance Due: Rs.${balance}\n` +
                   `Thank you!`;
 
@@ -342,19 +344,36 @@ async function generateDirectPDF() {
 
     let y = 95;
 
-    function drawField(label, value, x, width, highlight = false) {
+    function drawField(label, value, x, width, highlight = false, isProfit = false) {
         doc.setFont("Helvetica", "bold");
         doc.setFontSize(8);
         doc.setTextColor(100, 100, 100);
         doc.text(label.toUpperCase(), x, y);
 
-        doc.setFillColor(highlight ? 229 : 248, highlight ? 241 : 248, highlight ? 255 : 248);
-        doc.setDrawColor(220, 220, 220);
+        if (isProfit) {
+            doc.setFillColor(227, 249, 229);
+            doc.setDrawColor(52, 199, 89);
+        } else if (highlight) {
+            doc.setFillColor(229, 241, 255);
+            doc.setDrawColor(0, 122, 255);
+        } else {
+            doc.setFillColor(248, 248, 248);
+            doc.setDrawColor(220, 220, 220);
+        }
+
         doc.roundedRect(x, y + 4, width, 26, 4, 4, 'FD');
 
-        doc.setFont("Helvetica", highlight ? "bold" : "normal");
+        doc.setFont("Helvetica", (highlight || isProfit) ? "bold" : "normal");
         doc.setFontSize(10);
-        doc.setTextColor(highlight ? 0 : 40, highlight ? 122 : 40, highlight ? 255 : 40);
+
+        if (isProfit) {
+            doc.setTextColor(40, 167, 69);
+        } else if (highlight) {
+            doc.setTextColor(0, 122, 255);
+        } else {
+            doc.setTextColor(40, 40, 40);
+        }
+
         doc.text(String(value), x + 8, y + 20);
     }
 
@@ -436,8 +455,12 @@ async function generateDirectPDF() {
     drawField("Grand Total Bill (Rs.)", "Rs. " + (document.getElementById('grandTotalToday').value || '0'), 305, 250, true);
     y += 45;
 
-    drawField("Old Shop Ledger (Rs.)", "Rs. " + (document.getElementById('oldShopAmount').value || '0'), 40, 245);
-    drawField("Total Shop Balance (Rs.)", "Rs. " + (document.getElementById('shopTotal').value || '0'), 305, 250, true);
+    // Net Profit Today (Highlighted in Green in PDF)
+    drawField("Net Profit Today (Rs.)", "Rs. " + (document.getElementById('todayProfitAmount').value || '0'), 40, 245, false, true);
+    drawField("Old Shop Ledger (Rs.)", "Rs. " + (document.getElementById('oldShopAmount').value || '0'), 305, 250);
+    y += 45;
+
+    drawField("Total Shop Balance (Rs.)", "Rs. " + (document.getElementById('shopTotal').value || '0'), 40, 515, true);
 
     const safeDate = dateVal.replace(/\//g, '-');
     const fileName = `Smart_EG_Ledger_${safeDate}.pdf`;
