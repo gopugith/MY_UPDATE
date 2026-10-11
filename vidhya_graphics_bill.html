@@ -228,7 +228,7 @@
                 background: transparent !important;
             }
             .sig-name-input {
-                display: none;
+                display: none !important;
             }
             .print-sig-name {
                 display: block !important;
@@ -310,8 +310,8 @@
     <div class="signature-section">
         <div class="signature-box">
             <div class="signature-img-container" id="sigImageContainer"></div>
-            <input type="text" class="sig-name-input" id="sigNameInput" value="RAJESH G" placeholder="Signature Name">
-            <div class="print-sig-name" id="printSigNameDisplay">value</div>
+            <input type="text" class="sig-name-input" id="sigNameInput" value="" placeholder="Enter Name">
+            <div class="print-sig-name" id="printSigNameDisplay"></div>
             <div class="signature-label">Signature</div>
         </div>
     </div>
@@ -327,7 +327,7 @@
     </div>
     <div>
         <button type="button" class="btn btn-success" onclick="downloadPDF()">Download PDF</button>
-        <button type="button" class="btn" onclick="window.print()">Print Bill</button>
+        <button type="button" class="btn" onclick="printBill()">Print Bill</button>
     </div>
 </div>
 
@@ -397,12 +397,22 @@
         }
     }
 
+    function printBill() {
+        const sigNameVal = document.getElementById('sigNameInput').value;
+        document.getElementById('printSigNameDisplay').innerText = sigNameVal;
+        
+        window.print();
+    }
+
     function downloadPDF() {
-        // Sync the input value to the static text display so html2pdf captures it perfectly
         const sigNameVal = document.getElementById('sigNameInput').value;
         document.getElementById('printSigNameDisplay').innerText = sigNameVal;
         document.getElementById('printSigNameDisplay').style.display = 'block';
         document.getElementById('sigNameInput').style.display = 'none';
+
+        // Temporarily hide action elements for PDF generation
+        const noPrintCols = document.querySelectorAll('.no-print-col');
+        noPrintCols.forEach(col => col.style.display = 'none');
 
         const element = document.getElementById('invoiceContainer');
         const billNo = document.getElementById('billNo').value || 'bill';
@@ -415,9 +425,10 @@
         };
 
         html2pdf().from(element).set(opt).save().then(() => {
-            // Restore input fields after download finishes
+            // Restore inputs and action columns after download finishes
             document.getElementById('sigNameInput').style.display = 'block';
             document.getElementById('printSigNameDisplay').style.display = 'none';
+            noPrintCols.forEach(col => col.style.display = '');
         });
     }
 </script>
