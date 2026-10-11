@@ -104,29 +104,29 @@
             background-color: #fdfdfd;
         }
         .signature-section {
-            margin-top: 40px;
-            width: 100%;
-            text-align: right;
+            margin-top: 50px;
+            padding-bottom: 20px;
+            display: flex;
+            justify-content: flex-end;
             page-break-inside: avoid;
         }
         .signature-box {
-            display: inline-block;
-            width: 250px;
+            width: 260px;
             border-top: 1px solid #000;
-            padding-top: 8px;
+            padding-top: 6px;
             font-size: 14px;
             text-align: center;
         }
         .signature-img-container {
-            min-height: 50px;
-            margin-bottom: 4px;
+            height: 65px;
+            margin-bottom: 5px;
             display: flex;
             justify-content: center;
             align-items: center;
         }
         .signature-img-container img {
             max-height: 60px;
-            max-width: 180px;
+            max-width: 200px;
             object-fit: contain;
         }
         .sig-name-input {
@@ -138,10 +138,15 @@
             font-family: Arial, sans-serif;
             background: transparent;
             color: #000;
-            margin-top: 2px;
         }
         .sig-name-input:focus {
             outline: 1px solid #007bff;
+        }
+        .print-sig-name {
+            display: none;
+            font-weight: bold;
+            font-size: 15px;
+            text-align: center;
         }
         .signature-label {
             font-size: 13px;
@@ -230,13 +235,7 @@
             }
             .print-sig-name {
                 display: block !important;
-                font-weight: bold;
-                font-size: 15px;
-                text-align: center;
             }
-        }
-        .print-sig-name {
-            display: none;
         }
     </style>
 </head>
@@ -398,7 +397,6 @@
     function printBill() {
         const sigNameVal = document.getElementById('sigNameInput').value;
         document.getElementById('printSigNameDisplay').innerText = sigNameVal;
-        
         window.print();
     }
 
@@ -407,26 +405,28 @@
         const printSigDisplay = document.getElementById('printSigNameDisplay');
         const sigInput = document.getElementById('sigNameInput');
 
+        // Copy input text value into the static container for proper canvas rendering
         printSigDisplay.innerText = sigNameVal;
         printSigDisplay.style.display = 'block';
         sigInput.style.display = 'none';
 
-        // Temporarily hide action columns for PDF generation
+        // Temporarily hide action columns
         const noPrintCols = document.querySelectorAll('.no-print-col');
         noPrintCols.forEach(col => col.style.display = 'none');
 
         const element = document.getElementById('invoiceContainer');
         const billNo = document.getElementById('billNo').value || 'bill';
+        
         const opt = {
             margin:       [10, 10, 10, 10],
             filename:     `Cash_Bill_${billNo}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, logging: true, letterRendering: true },
+            html2canvas:  { scale: 2, useCORS: true, logging: false, letterRendering: true },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
         html2pdf().from(element).set(opt).save().then(() => {
-            // Restore inputs and action columns after download finishes
+            // Restore fields and action columns
             sigInput.style.display = 'block';
             printSigDisplay.style.display = 'none';
             noPrintCols.forEach(col => col.style.display = '');
