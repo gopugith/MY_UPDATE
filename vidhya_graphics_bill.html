@@ -405,7 +405,6 @@
         const printSigDisplay = document.getElementById('printSigNameDisplay');
         const sigInput = document.getElementById('sigNameInput');
 
-        // Copy input text value into the static container for proper canvas rendering
         printSigDisplay.innerText = sigNameVal;
         printSigDisplay.style.display = 'block';
         sigInput.style.display = 'none';
@@ -421,12 +420,17 @@
             margin:       [10, 10, 10, 10],
             filename:     `Cash_Bill_${billNo}.pdf`,
             image:        { type: 'jpeg', quality: 0.98 },
-            html2canvas:  { scale: 2, useCORS: true, logging: false, letterRendering: true },
+            html2canvas:  { 
+                scale: 2, 
+                useCORS: true, 
+                allowTaint: true, 
+                logging: false, 
+                letterRendering: true 
+            },
             jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
         };
 
         html2pdf().from(element).set(opt).save().then(() => {
-            // Restore fields and action columns
             sigInput.style.display = 'block';
             printSigDisplay.style.display = 'none';
             noPrintCols.forEach(col => col.style.display = '');
