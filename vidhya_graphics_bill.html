@@ -391,7 +391,7 @@
             const reader = new FileReader();
             reader.onload = function(e) {
                 const container = document.getElementById('sigImageContainer');
-                container.innerHTML = `<img src="${e.target.result}" alt="Signature/Stamp">`;
+                container.innerHTML = `<img src="${e.target.result}" alt="Signature/Stamp" crossorigin="anonymous">`;
             }
             reader.readAsDataURL(file);
         }
@@ -406,11 +406,14 @@
 
     function downloadPDF() {
         const sigNameVal = document.getElementById('sigNameInput').value;
-        document.getElementById('printSigNameDisplay').innerText = sigNameVal;
-        document.getElementById('printSigNameDisplay').style.display = 'block';
-        document.getElementById('sigNameInput').style.display = 'none';
+        const printSigDisplay = document.getElementById('printSigNameDisplay');
+        const sigInput = document.getElementById('sigNameInput');
 
-        // Temporarily hide action elements for PDF generation
+        printSigDisplay.innerText = sigNameVal;
+        printSigDisplay.style.display = 'block';
+        sigInput.style.display = 'none';
+
+        // Temporarily hide action columns for PDF generation
         const noPrintCols = document.querySelectorAll('.no-print-col');
         noPrintCols.forEach(col => col.style.display = 'none');
 
@@ -426,8 +429,8 @@
 
         html2pdf().from(element).set(opt).save().then(() => {
             // Restore inputs and action columns after download finishes
-            document.getElementById('sigNameInput').style.display = 'block';
-            document.getElementById('printSigNameDisplay').style.display = 'none';
+            sigInput.style.display = 'block';
+            printSigDisplay.style.display = 'none';
             noPrintCols.forEach(col => col.style.display = '');
         });
     }
